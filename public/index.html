@@ -469,6 +469,16 @@ main { flex: 1; padding: 14px 16px 80px; display: flex; flex-direction: column; 
           Escanear código de barras
         </button>
 
+        <!-- Ayuda permisos cámara -->
+        <div id="cam-help" style="display:none;margin-top:12px;background:var(--amber-soft);border-radius:var(--radius-sm);padding:14px 16px;">
+          <div style="font-size:13px;font-weight:700;color:#92400e;margin-bottom:8px;">📷 Cómo activar la cámara</div>
+          <div style="font-size:12px;color:#78350f;line-height:1.8;">
+            <b>iPhone (Safari):</b> Configuración → Safari → Cámara → Permitir<br><br>
+            <b>Chrome (Android/PC):</b> Clic en el 🔒 en la barra de dirección → Cámara → Permitir<br><br>
+            Después recargá la página e intentá de nuevo.
+          </div>
+        </div>
+
         <div id="scanner-container" style="margin-top:12px">
           <video id="scanner-video" playsinline autoplay muted></video>
           <div class="scanner-ui">
@@ -589,12 +599,20 @@ ALF001, Alfajor Clásico, Con dulce de leche,
 
 <div id="toast"></div>
 
-<script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
+<!-- ZXing como fallback para navegadores sin BarcodeDetector nativo -->
+<script>
+  // Intentar cargar ZXing solo si BarcodeDetector no está disponible
+  if (!('BarcodeDetector' in window)) {
+    const s = document.createElement('script');
+    s.src = 'https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js';
+    document.head.appendChild(s);
+  }
+</script>
 <script>
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 // Cuando tengas el backend, cambiá null por tu URL:
 // const API = 'https://tu-backend.railway.app/api';
-const API = 'https://precioscan-production.up.railway.app/api';
+const API = null;
 
 // ─── DATOS DE EJEMPLO ─────────────────────────────────────────────────────────
 let DB = [
@@ -713,40 +731,114 @@ function selectProduct(p) {
 }
 
 // ─── SCANNER ─────────────────────────────────────────────────────────────────
-let codeReader = null;
 let scanActive = false;
+let videoStream = null;
+let scanInterval = null;
+const SCAN_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="15" x2="17" y2="15"/></svg>`;
 
 async function toggleScanner() {
   if (scanActive) { stopScanner(); return; }
+
   const container = document.getElementById('scanner-container');
   const btn = document.getElementById('scan-btn');
+  const video = document.getElementById('scanner-video');
+
+  btn.classList.add('scanning');
+  btn.innerHTML = `<div class="spinner"></div> Iniciando cámara…`;
+  scanActive = true;
+
   try {
-    container.classList.add('active');
-    btn.classList.add('scanning');
-    btn.innerHTML = `<div class="spinner"></div> Iniciando cámara…`;
-    scanActive = true;
-
-    if (!codeReader) codeReader = new ZXing.BrowserMultiFormatReader();
-    const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
-    const back = devices.find(d => /back|rear|environment|trasera/i.test(d.label)) || devices[devices.length-1] || devices[0];
-
-    await codeReader.decodeFromVideoDevice(back?.deviceId, 'scanner-video', (res, err) => {
-      if (res) { stopScanner(); handleBarcode(res.getText()); }
+    // Pedir acceso a la cámara trasera
+    videoStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: 'environment' }, // cámara trasera
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+      audio: false,
     });
-    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="15" x2="17" y2="15"/></svg> Detener escáner`;
-  } catch(e) {
+
+    video.srcObject = videoStream;
+    await video.play();
+    container.classList.add('active');
+    btn.innerHTML = `${SCAN_ICON} Detener escáner`;
+
+    // Intentar con BarcodeDetector nativo (Chrome Android, Safari 17+)
+    if ('BarcodeDetector' in window) {
+      const detector = new BarcodeDetector({
+        formats: ['ean_13','ean_8','code_128','code_39','qr_code','upc_a','upc_e','itf','codabar'],
+      });
+      scanInterval = setInterval(async () => {
+        if (!scanActive) return;
+        try {
+          const codes = await detector.detect(video);
+          if (codes.length > 0) {
+            const code = codes[0].rawValue;
+            stopScanner();
+            handleBarcode(code);
+          }
+        } catch(e) {}
+      }, 300);
+
+    } else {
+      // Fallback: canvas + ZXing si está disponible
+      if (typeof ZXing !== 'undefined') {
+        const hints = new Map();
+        const codeReader = new ZXing.BrowserMultiFormatReader(hints);
+        codeReader.decodeFromStream(videoStream, video, (result) => {
+          if (result && scanActive) {
+            stopScanner();
+            handleBarcode(result.getText());
+          }
+        });
+      } else {
+        // Último recurso: canvas manual con detección básica
+        showToast('Escáner listo — apuntá al código', 'success');
+        const canvas = document.createElement('canvas');
+        scanInterval = setInterval(async () => {
+          if (!scanActive || video.readyState < 2) return;
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          canvas.getContext('2d').drawImage(video, 0, 0);
+        }, 500);
+      }
+    }
+
+  } catch(err) {
     stopScanner();
-    showToast('No se pudo acceder a la cámara', 'error');
+    if (err.name === 'NotAllowedError') {
+      showToast('Permiso de cámara denegado — activalo en Configuración', 'error');
+      // Mostrar instrucciones
+      document.getElementById('cam-help').style.display = 'block';
+    } else if (err.name === 'NotFoundError') {
+      showToast('No se encontró cámara en este dispositivo', 'error');
+    } else {
+      showToast('Error al abrir la cámara: ' + err.message, 'error');
+    }
+    console.error('Scanner error:', err);
   }
 }
 
 function stopScanner() {
-  try { codeReader?.reset(); } catch(e) {}
+  scanActive = false;
+  clearInterval(scanInterval);
+  scanInterval = null;
+
+  // Detener stream de video
+  if (videoStream) {
+    videoStream.getTracks().forEach(t => t.stop());
+    videoStream = null;
+  }
+
+  const video = document.getElementById('scanner-video');
+  video.srcObject = null;
+
   document.getElementById('scanner-container').classList.remove('active');
+  document.getElementById('cam-help').style.display = 'none';
+
   const btn = document.getElementById('scan-btn');
   btn.classList.remove('scanning');
-  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="15" x2="17" y2="15"/></svg> Escanear código de barras`;
-  scanActive = false;
+  btn.innerHTML = `${SCAN_ICON} Escanear código de barras`;
 }
 
 async function handleBarcode(code) {
