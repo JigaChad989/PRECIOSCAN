@@ -1,1 +1,873 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#e8001a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="/manifest.json">
+<title>PrecioScan</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --red: #e8001a;
+  --red-light: #ff2d45;
+  --red-soft: #fff0f2;
+  --red-mid: #ffd6da;
+  --red-border: #ffc0c6;
+  --white: #ffffff;
+  --off-white: #fafafa;
+  --gray-100: #f4f4f6;
+  --gray-200: #e8e8ed;
+  --gray-400: #b0b0be;
+  --gray-600: #6b6b80;
+  --gray-900: #1a1a2e;
+  --green: #00a86b;
+  --green-soft: #e6f7f1;
+  --amber: #f59e0b;
+  --amber-soft: #fef3c7;
+  --shadow-sm: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06);
+  --shadow-red: 0 4px 20px rgba(232,0,26,0.2);
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+}
 
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  width: 100%; min-height: 100vh;
+  background: var(--gray-100);
+  color: var(--gray-900);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; background: var(--gray-100); }
+
+/* ── HEADER ── */
+header {
+  background: var(--red);
+  padding: 52px 20px 20px;
+  position: relative; overflow: hidden;
+}
+header::before {
+  content: '';
+  position: absolute; top: -60px; right: -40px;
+  width: 200px; height: 200px; border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+}
+header::after {
+  content: '';
+  position: absolute; bottom: -30px; left: 20px;
+  width: 100px; height: 100px; border-radius: 50%;
+  background: rgba(255,255,255,0.05);
+}
+
+.header-top { display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 1; }
+
+.logo-area { display: flex; align-items: center; gap: 10px; }
+.logo-badge {
+  width: 38px; height: 38px; background: rgba(255,255,255,0.2);
+  border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  font-size: 20px; backdrop-filter: blur(8px);
+}
+.logo-name { font-family: 'Sora', sans-serif; font-size: 20px; font-weight: 800; color: white; letter-spacing: -0.5px; }
+.logo-sub { font-size: 11px; color: rgba(255,255,255,0.7); font-weight: 500; margin-top: 1px; }
+
+.online-badge {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.15); border-radius: 20px;
+  padding: 5px 12px; backdrop-filter: blur(8px);
+}
+.online-dot { width: 7px; height: 7px; background: #4ade80; border-radius: 50%; animation: blink 2s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+.online-text { font-size: 11px; font-weight: 600; color: white; }
+
+.header-search {
+  margin-top: 16px; position: relative; z-index: 1;
+}
+.header-search-box {
+  display: flex; align-items: center; gap: 10px;
+  background: white; border-radius: var(--radius-md);
+  padding: 12px 16px; box-shadow: var(--shadow-md);
+}
+.header-search-box svg { width: 18px; height: 18px; color: var(--gray-400); flex-shrink: 0; }
+.header-search-input {
+  flex: 1; border: none; outline: none; background: transparent;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-size: 15px; font-weight: 500;
+  color: var(--gray-900);
+}
+.header-search-input::placeholder { color: var(--gray-400); font-weight: 400; }
+.search-clear-btn {
+  width: 24px; height: 24px; border-radius: 50%; background: var(--gray-200);
+  border: none; cursor: pointer; display: none; align-items: center; justify-content: center;
+  font-size: 14px; color: var(--gray-600); transition: background .15s;
+}
+.search-clear-btn.show { display: flex; }
+
+/* ── DROPDOWN ── */
+#dropdown {
+  position: absolute; top: 100%; left: 0; right: 0;
+  background: white; border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg); z-index: 100; overflow: hidden;
+  margin-top: 6px; display: none;
+  border: 1px solid var(--gray-200);
+}
+#dropdown.show { display: block; }
+
+.drop-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border: none; background: transparent;
+  width: 100%; text-align: left; cursor: pointer;
+  border-bottom: 1px solid var(--gray-100); transition: background .1s;
+  color: var(--gray-900);
+}
+.drop-item:last-child { border-bottom: none; }
+.drop-item:active { background: var(--red-soft); }
+.drop-thumb {
+  width: 40px; height: 40px; border-radius: var(--radius-sm);
+  background: var(--red-soft); display: flex; align-items: center;
+  justify-content: center; font-size: 18px; flex-shrink: 0;
+}
+.drop-info { flex: 1; min-width: 0; }
+.drop-name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.drop-meta { font-size: 12px; color: var(--gray-600); margin-top: 1px; }
+.drop-price { font-size: 15px; font-weight: 800; color: var(--red); white-space: nowrap; }
+.drop-empty { padding: 20px 16px; text-align: center; color: var(--gray-400); font-size: 14px; }
+
+/* ── TABS ── */
+.tabs {
+  display: flex; background: white;
+  padding: 4px; margin: 16px 16px 0;
+  border-radius: var(--radius-md); box-shadow: var(--shadow-sm);
+  gap: 2px;
+}
+.tab-btn {
+  flex: 1; padding: 9px 8px; border: none; background: transparent;
+  color: var(--gray-600); font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  border-radius: var(--radius-sm); display: flex; align-items: center;
+  justify-content: center; gap: 6px; transition: all .2s; white-space: nowrap;
+}
+.tab-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+.tab-btn.active { background: var(--red); color: white; box-shadow: var(--shadow-red); }
+
+/* ── MAIN ── */
+main { flex: 1; padding: 14px 16px 80px; display: flex; flex-direction: column; gap: 14px; }
+
+.section { display: none; flex-direction: column; gap: 14px; }
+.section.active { display: flex; }
+
+/* ── CARDS ── */
+.card {
+  background: white; border-radius: var(--radius-lg);
+  padding: 18px; box-shadow: var(--shadow-sm);
+}
+.card-title {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.8px; color: var(--gray-400); margin-bottom: 14px;
+}
+
+/* ── SCAN BUTTON ── */
+.scan-btn {
+  width: 100%; padding: 16px 20px;
+  background: linear-gradient(135deg, var(--red) 0%, #c0001a 100%);
+  border: none; border-radius: var(--radius-md);
+  color: white; font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 16px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  box-shadow: var(--shadow-red); transition: all .15s; letter-spacing: 0.3px;
+}
+.scan-btn svg { width: 20px; height: 20px; }
+.scan-btn:active { transform: scale(0.97); box-shadow: 0 2px 8px rgba(232,0,26,0.3); }
+.scan-btn.scanning { background: linear-gradient(135deg, #444 0%, #222 100%); box-shadow: none; }
+
+/* ── SCANNER ── */
+#scanner-container {
+  display: none; border-radius: var(--radius-md); overflow: hidden;
+  position: relative; background: #000; box-shadow: var(--shadow-md);
+}
+#scanner-container.active { display: block; }
+#scanner-video { width: 100%; display: block; aspect-ratio: 4/3; object-fit: cover; }
+
+.scanner-ui {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.scanner-frame {
+  width: 65%; aspect-ratio: 2.5/1; position: relative;
+}
+.scanner-corner {
+  position: absolute; width: 22px; height: 22px;
+  border-color: white; border-style: solid; border-radius: 3px;
+}
+.scanner-corner.tl { top: 0; left: 0; border-width: 3px 0 0 3px; }
+.scanner-corner.tr { top: 0; right: 0; border-width: 3px 3px 0 0; }
+.scanner-corner.bl { bottom: 0; left: 0; border-width: 0 0 3px 3px; }
+.scanner-corner.br { bottom: 0; right: 0; border-width: 0 3px 3px 0; }
+.scanner-beam {
+  position: absolute; left: 0; right: 0; height: 2px;
+  background: var(--red); border-radius: 2px;
+  animation: beam 2s ease-in-out infinite;
+  box-shadow: 0 0 8px rgba(232,0,26,0.8);
+}
+@keyframes beam { 0%,100%{top:0%} 50%{top:100%} }
+.scanner-hint {
+  margin-top: 16px; background: rgba(0,0,0,0.6); color: white;
+  font-size: 12px; font-weight: 600; padding: 6px 16px;
+  border-radius: 20px; letter-spacing: 0.3px;
+}
+
+.scan-close {
+  position: absolute; top: 12px; right: 12px; pointer-events: all;
+  width: 34px; height: 34px; background: rgba(0,0,0,0.6);
+  border: none; border-radius: 50%; color: white; font-size: 16px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+
+/* ── RESULT CARD ── */
+#result-card { display: none; }
+#result-card.show { display: block; }
+
+.result-top {
+  display: flex; align-items: center; gap: 14px; margin-bottom: 16px;
+}
+.result-emoji {
+  width: 54px; height: 54px; background: var(--red-soft);
+  border-radius: var(--radius-md); display: flex; align-items: center;
+  justify-content: center; font-size: 26px; flex-shrink: 0;
+}
+.result-names {}
+.result-code { font-size: 11px; font-weight: 700; color: var(--red); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px; }
+.result-name { font-family: 'Sora', sans-serif; font-size: 18px; font-weight: 800; line-height: 1.15; color: var(--gray-900); }
+.result-cat-badge {
+  display: inline-block; background: var(--red-soft); color: var(--red);
+  font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px;
+  margin-top: 5px;
+}
+
+.result-desc { font-size: 14px; color: var(--gray-600); line-height: 1.5; margin-bottom: 16px; }
+
+.price-hero {
+  background: linear-gradient(135deg, var(--red) 0%, #c0001a 100%);
+  border-radius: var(--radius-md); padding: 18px 20px;
+  display: flex; align-items: baseline; gap: 4px; margin-bottom: 14px;
+  position: relative; overflow: hidden; box-shadow: var(--shadow-red);
+}
+.price-hero::before {
+  content: 'PRECIO DE VENTA';
+  position: absolute; top: 10px; right: 14px;
+  font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.5); letter-spacing: 1.5px;
+}
+.price-hero::after {
+  content: '';
+  position: absolute; bottom: -20px; right: -20px;
+  width: 90px; height: 90px; border-radius: 50%;
+  background: rgba(255,255,255,0.07);
+}
+.price-cur { font-size: 24px; font-weight: 800; color: white; align-self: flex-start; margin-top: 10px; }
+.price-num { font-family: 'Sora', sans-serif; font-size: 52px; font-weight: 800; color: white; line-height: 1; letter-spacing: -2px; }
+.price-unit-txt { font-size: 13px; color: rgba(255,255,255,0.7); font-weight: 600; margin-left: 4px; }
+
+.meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.meta-chip {
+  background: var(--gray-100); border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+.meta-chip-label { font-size: 11px; font-weight: 600; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.meta-chip-value { font-size: 17px; font-weight: 800; color: var(--gray-900); }
+.meta-chip-value.green { color: var(--green); }
+.meta-chip-value.amber { color: var(--amber); }
+.meta-chip-value.red { color: var(--red); }
+
+/* ── PRODUCTS LIST ── */
+.search-bar-inline {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--gray-100); border-radius: var(--radius-sm);
+  padding: 10px 14px; margin-bottom: 12px;
+}
+.search-bar-inline svg { width: 16px; height: 16px; color: var(--gray-400); flex-shrink: 0; }
+.search-bar-inline input {
+  flex: 1; border: none; background: transparent; outline: none;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px; color: var(--gray-900);
+}
+.search-bar-inline input::placeholder { color: var(--gray-400); }
+
+.cat-scroll { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 12px; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+.cat-scroll::-webkit-scrollbar { display: none; }
+.cat-chip {
+  padding: 6px 16px; border-radius: 20px; border: 1.5px solid var(--gray-200);
+  background: white; font-size: 12px; font-weight: 700; cursor: pointer;
+  white-space: nowrap; color: var(--gray-600); transition: all .15s;
+  flex-shrink: 0;
+}
+.cat-chip.active { background: var(--red); border-color: var(--red); color: white; box-shadow: 0 2px 8px rgba(232,0,26,0.25); }
+
+.prod-count-label { font-size: 12px; color: var(--gray-400); font-weight: 600; margin-bottom: 10px; }
+
+.prod-list { display: flex; flex-direction: column; gap: 8px; max-height: 52vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.prod-list::-webkit-scrollbar { width: 3px; }
+.prod-list::-webkit-scrollbar-track { background: transparent; }
+.prod-list::-webkit-scrollbar-thumb { background: var(--red-border); border-radius: 3px; }
+
+.prod-row {
+  display: flex; align-items: center; gap: 12px;
+  background: white; border-radius: var(--radius-sm);
+  padding: 12px 14px; cursor: pointer; transition: all .15s;
+  border: 1.5px solid transparent; box-shadow: var(--shadow-sm);
+}
+.prod-row:active { border-color: var(--red); background: var(--red-soft); transform: scale(0.99); }
+.prod-row-icon {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: var(--red-soft); display: flex; align-items: center;
+  justify-content: center; font-size: 18px; flex-shrink: 0;
+}
+.prod-row-info { flex: 1; min-width: 0; }
+.prod-row-name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--gray-900); }
+.prod-row-sub { font-size: 11px; color: var(--gray-400); font-weight: 500; margin-top: 2px; }
+.prod-row-price { font-size: 15px; font-weight: 800; color: var(--red); white-space: nowrap; }
+.prod-row-arrow { font-size: 14px; color: var(--gray-400); }
+
+/* ── CSV ── */
+.upload-zone {
+  border: 2px dashed var(--red-border); border-radius: var(--radius-md);
+  padding: 32px 20px; text-align: center; cursor: pointer;
+  transition: all .2s; position: relative; background: var(--red-soft);
+}
+.upload-zone.drag { border-color: var(--red); background: var(--red-mid); }
+.upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.upload-icon-big { font-size: 40px; margin-bottom: 10px; display: block; }
+.upload-title { font-family: 'Sora', sans-serif; font-size: 17px; font-weight: 800; color: var(--gray-900); margin-bottom: 4px; }
+.upload-sub { font-size: 13px; color: var(--gray-600); }
+
+.info-box {
+  background: var(--gray-100); border-radius: var(--radius-sm);
+  padding: 14px 16px; margin-top: 14px;
+}
+.info-box-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--gray-400); margin-bottom: 8px; }
+.info-box-code {
+  font-family: 'Plus Jakarta Sans', monospace; font-size: 12px; color: var(--red);
+  line-height: 1.9; white-space: pre-wrap; word-break: break-all;
+  background: white; border-radius: var(--radius-sm); padding: 10px 12px;
+  border: 1px solid var(--gray-200);
+}
+
+.log-list { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.log-row {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--gray-100); border-radius: var(--radius-sm); padding: 10px 12px;
+}
+.log-row.ok { background: var(--green-soft); }
+.log-row.err { background: var(--red-soft); }
+.log-icon { font-size: 14px; flex-shrink: 0; }
+.log-text { font-size: 12px; font-weight: 600; color: var(--gray-900); }
+
+.steps-list { display: flex; flex-direction: column; gap: 10px; }
+.step-row { display: flex; align-items: flex-start; gap: 12px; }
+.step-num {
+  width: 26px; height: 26px; border-radius: 50%; background: var(--red);
+  color: white; font-size: 12px; font-weight: 800; display: flex;
+  align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
+}
+.step-text { font-size: 14px; color: var(--gray-600); line-height: 1.5; padding-top: 4px; }
+.step-text strong { color: var(--gray-900); }
+
+/* ── EMPTY STATE ── */
+.empty-state { text-align: center; padding: 40px 20px; }
+.empty-icon { font-size: 48px; margin-bottom: 12px; }
+.empty-title { font-size: 16px; font-weight: 700; color: var(--gray-900); margin-bottom: 6px; }
+.empty-sub { font-size: 14px; color: var(--gray-400); }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+  background: var(--gray-900); color: white; padding: 12px 20px;
+  border-radius: 24px; font-size: 13px; font-weight: 600; z-index: 999;
+  white-space: nowrap; box-shadow: var(--shadow-lg); transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+  pointer-events: none;
+}
+#toast.show { transform: translateX(-50%) translateY(0); }
+#toast.success { background: var(--green); }
+#toast.error { background: var(--red); }
+
+/* ── LOADING ── */
+.spinner {
+  width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: white; border-radius: 50%; animation: spin .7s linear infinite; display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── UTILITY ── */
+.emoji-cat { font-size: 16px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-top">
+      <div class="logo-area">
+        <div class="logo-badge">🏷️</div>
+        <div>
+          <div class="logo-name">PrecioScan</div>
+          <div class="logo-sub">Consulta de precios</div>
+        </div>
+      </div>
+      <div class="online-badge">
+        <div class="online-dot"></div>
+        <span class="online-text">En línea</span>
+      </div>
+    </div>
+
+    <div class="header-search" style="position:relative">
+      <div class="header-search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input class="header-search-input" id="search-input" type="text" placeholder="Buscar por nombre o código…" autocomplete="off" autocorrect="off" spellcheck="false">
+        <button class="search-clear-btn" id="search-clear" onclick="clearSearch()">✕</button>
+      </div>
+      <div id="dropdown"></div>
+    </div>
+  </header>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="consulta" onclick="switchTab('consulta',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      Consulta
+    </button>
+    <button class="tab-btn" data-tab="productos" onclick="switchTab('productos',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+      Productos
+    </button>
+    <button class="tab-btn" data-tab="importar" onclick="switchTab('importar',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      CSV
+    </button>
+  </div>
+
+  <main>
+
+    <!-- ── CONSULTA ── -->
+    <div class="section active" id="tab-consulta">
+
+      <!-- Scanner -->
+      <div class="card">
+        <div class="card-title">Escanear código de barras</div>
+        <button class="scan-btn" id="scan-btn" onclick="toggleScanner()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/>
+            <line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="15" x2="17" y2="15"/>
+          </svg>
+          Escanear código de barras
+        </button>
+
+        <div id="scanner-container" style="margin-top:12px">
+          <video id="scanner-video" playsinline autoplay muted></video>
+          <div class="scanner-ui">
+            <div class="scanner-frame">
+              <div class="scanner-corner tl"></div>
+              <div class="scanner-corner tr"></div>
+              <div class="scanner-corner bl"></div>
+              <div class="scanner-corner br"></div>
+              <div class="scanner-beam"></div>
+            </div>
+            <div class="scanner-hint">Apuntá al código de barras</div>
+          </div>
+          <button class="scan-close" onclick="stopScanner()">✕</button>
+        </div>
+      </div>
+
+      <!-- Result -->
+      <div class="card" id="result-card">
+        <div class="result-top">
+          <div class="result-emoji" id="r-emoji">🍬</div>
+          <div class="result-names">
+            <div class="result-code" id="r-code">ALF001</div>
+            <div class="result-name" id="r-name">Nombre del producto</div>
+            <span class="result-cat-badge" id="r-cat">Categoría</span>
+          </div>
+        </div>
+        <div class="result-desc" id="r-desc">Descripción del producto</div>
+        <div class="price-hero">
+          <span class="price-cur">$</span>
+          <span class="price-num" id="r-price">0</span>
+          <span class="price-unit-txt" id="r-unit">/ u.</span>
+        </div>
+        <div class="meta-grid">
+          <div class="meta-chip">
+            <div class="meta-chip-label">Stock</div>
+            <div class="meta-chip-value" id="r-stock">—</div>
+          </div>
+          <div class="meta-chip">
+            <div class="meta-chip-label">IVA</div>
+            <div class="meta-chip-value" id="r-iva">21%</div>
+          </div>
+          <div class="meta-chip">
+            <div class="meta-chip-label">Precio c/IVA</div>
+            <div class="meta-chip-value" id="r-coniva">—</div>
+          </div>
+          <div class="meta-chip">
+            <div class="meta-chip-label">Unidad</div>
+            <div class="meta-chip-value" id="r-unitlabel">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty prompt -->
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon">🔍</div>
+        <div class="empty-title">Buscá o escaneá un producto</div>
+        <div class="empty-sub">El precio y los detalles aparecen acá</div>
+      </div>
+
+    </div>
+
+    <!-- ── PRODUCTOS ── -->
+    <div class="section" id="tab-productos">
+      <div class="card">
+        <div class="card-title">Todos los productos</div>
+        <div class="search-bar-inline">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="prod-search" placeholder="Filtrar productos…" oninput="renderProducts()">
+        </div>
+        <div class="cat-scroll" id="cat-filters"></div>
+        <div class="prod-count-label" id="prod-count"></div>
+        <div class="prod-list" id="prod-list">
+          <div class="empty-state">
+            <div class="empty-icon">⏳</div>
+            <div class="empty-title">Cargando…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── IMPORTAR ── -->
+    <div class="section" id="tab-importar">
+      <div class="card">
+        <div class="card-title">Subir CSV de Factusol</div>
+        <div class="upload-zone" id="upload-zone">
+          <input type="file" accept=".csv,.txt" id="csv-file-input" onchange="handleCSV(event)">
+          <span class="upload-icon-big">📂</span>
+          <div class="upload-title">Tocar para seleccionar</div>
+          <div class="upload-sub">Archivo CSV exportado desde Factusol</div>
+        </div>
+
+        <div class="info-box">
+          <div class="info-box-title">Columnas del CSV</div>
+          <div class="info-box-code">codigo, nombre, descripcion, precio,
+categoria, stock, unidad, iva
+
+ALF001, Alfajor Clásico, Con dulce de leche,
+850, Alfajores, 200, unidad, 21</div>
+        </div>
+
+        <div class="log-list" id="import-log"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Cómo exportar desde Factusol</div>
+        <div class="steps-list">
+          <div class="step-row"><div class="step-num">1</div><div class="step-text">Abrí Factusol → <strong>Artículos</strong></div></div>
+          <div class="step-row"><div class="step-num">2</div><div class="step-text">Menú → <strong>Listados → Artículos</strong></div></div>
+          <div class="step-row"><div class="step-num">3</div><div class="step-text">Exportar → elegí <strong>CSV</strong> con separador <strong>coma</strong></div></div>
+          <div class="step-row"><div class="step-num">4</div><div class="step-text">Guardá el archivo y <strong>subilo acá arriba</strong></div></div>
+          <div class="step-row"><div class="step-num">5</div><div class="step-text">Repetí cada vez que cambies precios en Factusol</div></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+// Cuando tengas el backend, cambiá null por tu URL:
+// const API = 'https://tu-backend.railway.app/api';
+const API = 'https://precioscan-production.up.railway.app/api';
+
+// ─── DATOS DE EJEMPLO ─────────────────────────────────────────────────────────
+let DB = [
+  { id:1, codigo:'ALF001', nombre:'Alfajor Clásico', descripcion:'De maicena con dulce de leche repostero', precio:850, categoria:'Alfajores', stock:200, unidad:'unidad', iva:21 },
+  { id:2, codigo:'ALF002', nombre:'Alfajor Chocolate Amargo', descripcion:'Cubierto de chocolate 70% cacao', precio:980, categoria:'Alfajores', stock:150, unidad:'unidad', iva:21 },
+  { id:3, codigo:'ALF003', nombre:'Alfajor Triple', descripcion:'Tres capas con dulce de leche repostero', precio:1100, categoria:'Alfajores', stock:120, unidad:'unidad', iva:21 },
+  { id:4, codigo:'ALF004', nombre:'Alfajor Blanco Maracuyá', descripcion:'Chocolate blanco con crema de maracuyá', precio:950, categoria:'Alfajores', stock:80, unidad:'unidad', iva:21 },
+  { id:5, codigo:'CAJ001', nombre:'Caja x12 Clásicos', descripcion:'Caja de 12 alfajores clásicos', precio:9600, categoria:'Cajas', stock:40, unidad:'caja', iva:21 },
+  { id:6, codigo:'CAJ002', nombre:'Caja x24 Surtidos', descripcion:'Caja surtida 24 unidades variadas', precio:19200, categoria:'Cajas', stock:25, unidad:'caja', iva:21 },
+  { id:7, codigo:'REG001', nombre:'Estuche Regalo Chico', descripcion:'3 alfajores seleccionados con lazo', precio:3200, categoria:'Regalos', stock:50, unidad:'estuche', iva:21 },
+  { id:8, codigo:'REG002', nombre:'Estuche Regalo Grande', descripcion:'6 alfajores premium con caja decorada', precio:6800, categoria:'Regalos', stock:20, unidad:'estuche', iva:21 },
+  { id:9, codigo:'MAY001', nombre:'Mayorista x60 Clásicos', descripcion:'Bolsa mayorista 60 unidades', precio:45000, categoria:'Mayorista', stock:15, unidad:'bolsa', iva:21 },
+  { id:10, codigo:'MAY002', nombre:'Mayorista x60 Surtidos', descripcion:'Bolsa mayorista surtida 60 unidades', precio:46000, categoria:'Mayorista', stock:10, unidad:'bolsa', iva:21 },
+];
+
+// ─── EMOJIS POR CATEGORÍA ────────────────────────────────────────────────────
+const catEmoji = { 'Alfajores':'🍬', 'Cajas':'📦', 'Regalos':'🎁', 'Mayorista':'🏭', 'General':'🏷️', 'Importado':'📋' };
+const getEmoji = cat => catEmoji[cat] || '🏷️';
+
+// ─── FORMATO ─────────────────────────────────────────────────────────────────
+const fmt = n => new Intl.NumberFormat('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n);
+
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+function switchTab(id, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  btn.classList.add('active');
+  if (id === 'productos') renderProducts();
+}
+
+// ─── BÚSQUEDA ────────────────────────────────────────────────────────────────
+const searchInput = document.getElementById('search-input');
+const dropdown = document.getElementById('dropdown');
+const searchClearBtn = document.getElementById('search-clear');
+let searchTimeout;
+
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchTimeout);
+  const q = searchInput.value.trim();
+  searchClearBtn.classList.toggle('show', q.length > 0);
+  if (!q) { hideDropdown(); return; }
+  searchTimeout = setTimeout(() => doSearch(q), 160);
+});
+
+async function doSearch(q) {
+  let res = API ? await safeFetch(`${API}/products?q=${encodeURIComponent(q)}`) || localSearch(q) : localSearch(q);
+  if (!res.length) {
+    dropdown.innerHTML = `<div class="drop-empty">Sin resultados para "${q}" 😕</div>`;
+  } else {
+    dropdown.innerHTML = res.slice(0,7).map(p => `
+      <button class="drop-item" onclick='selectProduct(${JSON.stringify(p)})'>
+        <div class="drop-thumb">${getEmoji(p.categoria)}</div>
+        <div class="drop-info">
+          <div class="drop-name">${p.nombre}</div>
+          <div class="drop-meta">${p.codigo} · ${p.categoria}</div>
+        </div>
+        <span class="drop-price">$${fmt(p.precio)}</span>
+      </button>
+    `).join('');
+  }
+  dropdown.classList.add('show');
+}
+
+function localSearch(q) {
+  const lq = q.toLowerCase();
+  return DB.filter(p =>
+    p.nombre.toLowerCase().includes(lq) ||
+    p.codigo.toLowerCase().includes(lq) ||
+    (p.descripcion||'').toLowerCase().includes(lq) ||
+    (p.categoria||'').toLowerCase().includes(lq)
+  );
+}
+
+function hideDropdown() { dropdown.classList.remove('show'); dropdown.innerHTML = ''; }
+
+function clearSearch() {
+  searchInput.value = '';
+  searchClearBtn.classList.remove('show');
+  hideDropdown();
+  document.getElementById('result-card').classList.remove('show');
+  document.getElementById('empty-state').style.display = '';
+}
+
+async function safeFetch(url, opts) {
+  try { const r = await fetch(url, opts); if (r.ok) return await r.json(); } catch(e) {}
+  return null;
+}
+
+// ─── SELECCIONAR PRODUCTO ────────────────────────────────────────────────────
+function selectProduct(p) {
+  hideDropdown();
+  searchInput.value = p.nombre;
+  searchClearBtn.classList.add('show');
+  document.getElementById('empty-state').style.display = 'none';
+
+  document.getElementById('r-emoji').textContent = getEmoji(p.categoria);
+  document.getElementById('r-code').textContent = p.codigo;
+  document.getElementById('r-name').textContent = p.nombre;
+  document.getElementById('r-cat').textContent = p.categoria;
+  document.getElementById('r-desc').textContent = p.descripcion || 'Sin descripción';
+  document.getElementById('r-price').textContent = fmt(p.precio);
+  document.getElementById('r-unit').textContent = '/ ' + p.unidad;
+  document.getElementById('r-iva').textContent = p.iva + '%';
+  document.getElementById('r-unitlabel').textContent = p.unidad;
+
+  const stockEl = document.getElementById('r-stock');
+  stockEl.textContent = p.stock + ' u.';
+  stockEl.className = 'meta-chip-value ' + (p.stock > 20 ? 'green' : p.stock > 5 ? 'amber' : 'red');
+
+  document.getElementById('r-coniva').textContent = '$' + fmt(p.precio * (1 + p.iva/100));
+
+  const card = document.getElementById('result-card');
+  card.classList.add('show');
+  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ─── SCANNER ─────────────────────────────────────────────────────────────────
+let codeReader = null;
+let scanActive = false;
+
+async function toggleScanner() {
+  if (scanActive) { stopScanner(); return; }
+  const container = document.getElementById('scanner-container');
+  const btn = document.getElementById('scan-btn');
+  try {
+    container.classList.add('active');
+    btn.classList.add('scanning');
+    btn.innerHTML = `<div class="spinner"></div> Iniciando cámara…`;
+    scanActive = true;
+
+    if (!codeReader) codeReader = new ZXing.BrowserMultiFormatReader();
+    const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
+    const back = devices.find(d => /back|rear|environment|trasera/i.test(d.label)) || devices[devices.length-1] || devices[0];
+
+    await codeReader.decodeFromVideoDevice(back?.deviceId, 'scanner-video', (res, err) => {
+      if (res) { stopScanner(); handleBarcode(res.getText()); }
+    });
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="15" x2="17" y2="15"/></svg> Detener escáner`;
+  } catch(e) {
+    stopScanner();
+    showToast('No se pudo acceder a la cámara', 'error');
+  }
+}
+
+function stopScanner() {
+  try { codeReader?.reset(); } catch(e) {}
+  document.getElementById('scanner-container').classList.remove('active');
+  const btn = document.getElementById('scan-btn');
+  btn.classList.remove('scanning');
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="15" x2="17" y2="15"/></svg> Escanear código de barras`;
+  scanActive = false;
+}
+
+async function handleBarcode(code) {
+  showToast('Código detectado: ' + code);
+  searchInput.value = code;
+  searchClearBtn.classList.add('show');
+
+  let product = DB.find(p => p.codigo === code);
+  if (!product && API) product = await safeFetch(`${API}/products/barcode/${encodeURIComponent(code)}`);
+  if (!product) {
+    const hits = localSearch(code);
+    if (hits.length === 1) product = hits[0];
+    else if (hits.length > 1) { doSearch(code); return; }
+  }
+
+  if (product) selectProduct(product);
+  else {
+    document.getElementById('empty-state').style.display = '';
+    showToast('Código no encontrado en la base', 'error');
+  }
+}
+
+// ─── PRODUCTOS TAB ────────────────────────────────────────────────────────────
+let currentCat = 'Todos';
+
+function renderProducts() {
+  const cats = ['Todos', ...new Set(DB.map(p => p.categoria))];
+  const filtersEl = document.getElementById('cat-filters');
+  filtersEl.innerHTML = cats.map(c =>
+    `<button class="cat-chip ${c===currentCat?'active':''}" onclick="filterCat('${c}',this)">${c}</button>`
+  ).join('');
+
+  const q = (document.getElementById('prod-search')?.value || '').toLowerCase();
+  let filtered = currentCat === 'Todos' ? DB : DB.filter(p => p.categoria === currentCat);
+  if (q) filtered = filtered.filter(p => p.nombre.toLowerCase().includes(q) || p.codigo.toLowerCase().includes(q));
+
+  document.getElementById('prod-count').textContent = `${filtered.length} producto${filtered.length!==1?'s':''} encontrado${filtered.length!==1?'s':''}`;
+
+  if (!filtered.length) {
+    document.getElementById('prod-list').innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">Sin resultados</div></div>`;
+    return;
+  }
+
+  document.getElementById('prod-list').innerHTML = filtered.map(p => `
+    <div class="prod-row" onclick='goToProduct(${JSON.stringify(p)})'>
+      <div class="prod-row-icon">${getEmoji(p.categoria)}</div>
+      <div class="prod-row-info">
+        <div class="prod-row-name">${p.nombre}</div>
+        <div class="prod-row-sub">${p.codigo} · ${p.unidad} · Stock: ${p.stock}</div>
+      </div>
+      <span class="prod-row-price">$${fmt(p.precio)}</span>
+      <span class="prod-row-arrow">›</span>
+    </div>
+  `).join('');
+}
+
+function filterCat(cat, btn) {
+  currentCat = cat;
+  document.querySelectorAll('.cat-chip').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderProducts();
+}
+
+function goToProduct(p) {
+  switchTab('consulta', document.querySelector('[data-tab="consulta"]'));
+  setTimeout(() => selectProduct(p), 60);
+}
+
+// ─── CSV ──────────────────────────────────────────────────────────────────────
+const zone = document.getElementById('upload-zone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('drag'); const f=e.dataTransfer.files[0]; if(f) processCSV(f); });
+
+async function handleCSV(evt) {
+  const f = evt.target.files[0]; if(f) processCSV(f); evt.target.value='';
+}
+
+async function processCSV(file) {
+  const text = await file.text();
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z]/g,''));
+  const log = document.getElementById('import-log');
+  log.innerHTML = '';
+  let ok=0, err=0;
+
+  const find = (keys) => headers.find(h => keys.some(k => h.includes(k)));
+  const nk = find(['nombre','name','descripcion']); const pk = find(['precio','price','pvp','venta']);
+  const ck = find(['codigo','cod','ref','barcode']); const catk = find(['categoria','cat','familia','grupo']);
+
+  const added = [];
+  for (let i=1; i<lines.length; i++) {
+    const v = lines[i].split(',');
+    const r = {}; headers.forEach((h,j) => r[h]=(v[j]||'').trim());
+    const nombre = r[nk]||r.nombre||'';
+    const precio = parseFloat(r[pk]||r.precio||'0');
+    const codigo = r[ck]||r.codigo||`CSV${i}`;
+    if (!nombre||isNaN(precio)||precio<=0) { err++; log.innerHTML+=`<div class="log-row err"><span class="log-icon">✗</span><span class="log-text">Fila ${i}: datos inválidos</span></div>`; continue; }
+    const prod = { id:Date.now()+i, codigo, nombre, precio, descripcion:r.descripcion||r.desc||'', categoria:r[catk]||r.categoria||'Importado', stock:parseInt(r.stock||'0')||0, unidad:r.unidad||r.um||'unidad', iva:parseFloat(r.iva||'21')||21 };
+    const ex = DB.findIndex(p=>p.codigo===codigo);
+    if (ex>=0) DB[ex]={...DB[ex],...prod}; else added.push(prod);
+    ok++;
+    log.innerHTML+=`<div class="log-row ok"><span class="log-icon">✓</span><span class="log-text">${codigo} — ${nombre} — $${fmt(precio)}</span></div>`;
+  }
+  DB=[...DB,...added];
+  if (API) { safeFetch(`${API}/products/import`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(DB)}); }
+  showToast(`${ok} productos importados${err?' · '+err+' errores':''}`, ok>0?'success':'error');
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = type;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2800);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+document.addEventListener('click', e => {
+  if (!e.target.closest('#dropdown') && !e.target.closest('.header-search')) hideDropdown();
+});
+</script>
+</body>
+</html>
