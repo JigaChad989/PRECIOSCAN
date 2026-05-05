@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Importar Productos → Supabase</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: sans-serif; background: #f4f4f6; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .card { background: white; border-radius: 16px; padding: 28px; max-width: 520px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+  h1 { font-size: 20px; font-weight: 800; color: #1a1a2e; margin-bottom: 4px; }
+  p { font-size: 13px; color: #6b6b80; margin-bottom: 20px; }
+  .drop { border: 2px dashed #ffc0c6; border-radius: 12px; padding: 32px; text-align: center; cursor: pointer; background: #fff0f2; position: relative; transition: all .2s; }
+  .drop:hover, .drop.drag { border-color: #e8001a; background: #ffd6da; }
+  .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .drop-icon { font-size: 36px; margin-bottom: 8px; }
+  .drop-title { font-size: 16px; font-weight: 700; color: #1a1a2e; }
+  .drop-sub { font-size: 12px; color: #6b6b80; margin-top: 4px; }
+  .progress-wrap { display: none; margin-top: 20px; }
+  .progress-label { font-size: 13px; font-weight: 700; color: #1a1a2e; margin-bottom: 6px; display: flex; justify-content: space-between; }
+  .progress-bar-bg { background: #e8e8ed; border-radius: 20px; height: 10px; overflow: hidden; }
+  .progress-bar { height: 100%; background: #e8001a; border-radius: 20px; width: 0%; transition: width .4s; }
+  .progress-detail { font-size: 12px; color: #6b6b80; margin-top: 6px; }
+  .result { margin-top: 16px; padding: 14px 16px; border-radius: 10px; font-size: 14px; font-weight: 600; display: none; }
+  .result.ok { background: #e6f7f1; color: #00a86b; }
+  .result.err { background: #fff0f2; color: #e8001a; }
+  .btn { display: none; width: 100%; margin-top: 14px; padding: 14px; background: #e8001a; color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; }
+  .btn:hover { background: #c0001a; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>📦 Importar Productos</h1>
+  <p>Subí el CSV de Factusol y se cargará directo a Supabase en lotes de 200.</p>
+
+  <div class="drop" id="drop">
+    <input type="file" accept=".csv,.txt" id="file-input">
+    <div class="drop-icon">📂</div>
+    <div class="drop-title">Seleccionar archivo CSV</div>
+    <div class="drop-sub">productos.csv exportado desde Factusol</div>
+  </div>
+
+  <div class="progress-wrap" id="progress-wrap">
+    <div class="progress-label">
+      <span id="prog-label">Subiendo…</span>
+      <span id="prog-pct">0%</span>
+    </div>
+    <div class="progress-bar-bg"><div class="progress-bar" id="prog-bar"></div></div>
+    <div class="progress-detail" id="prog-detail">Preparando…</div>
+  </div>
+
+  <div class="result" id="result"></div>
+  <button class="btn" id="btn-reload" onclick="location.reload()">Importar otro archivo</button>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://xaktfuibvjunytnddxcb.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_7LY9aXtW6MZO_aoX9VO73w_y5jfZ_pd';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const drop = document.getElementById('drop');
+const fileInput = document.getElementById('file-input');
+
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
+drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('drag'); if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', e => { if (e.target.files[0]) processFile(e.target.files[0]); });
+
+async function processFile(file) {
+  fileInput.disabled = true;
+  drop.style.pointerEvents = 'none';
+  drop.style.opacity = '0.5';
+
+  const text = await file.text();
+  const lines = text.trim().split('\n').filter(l => l.trim());
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z]/g, ''));
+
+  const find = keys => headers.find(h => keys.some(k => h.includes(k)));
+  const nk = find(['nombre','name']);
+  const pk = find(['precio','price','pvp','venta']);
+  const ck = find(['codigo','cod','ref','barcode']);
+  const catk = find(['categoria','cat','familia','grupo']);
+  const dk = find(['descripcion','desc']);
+
+  const rows = [];
+  let skipped = 0;
+  for (let i = 1; i < lines.length; i++) {
+    const v = lines[i].split(',');
+    const r = {}; headers.forEach((h, j) => r[h] = (v[j] || '').trim());
+    const codigo = r[ck] || r.codigo || '';
+    const nombre = r[nk] || r.nombre || '';
+    const precio = parseFloat(r[pk] || r.precio || '0');
+    if (!codigo || !nombre || isNaN(precio) || precio <= 0) { skipped++; continue; }
+    rows.push({
+      codigo, nombre, precio,
+      descripcion: r[dk] || r.descripcion || '',
+      categoria: r[catk] || r.categoria || 'General',
+      stock: parseInt(r.stock || '0') || 0,
+      unidad: r.unidad || r.um || 'unidad',
+      iva: parseInt(r.iva || '21') || 21,
+    });
+  }
+
+  const total = rows.length;
+  const CHUNK = 200;
+  let ok = 0;
+  let errorMsg = null;
+
+  document.getElementById('progress-wrap').style.display = 'block';
+
+  for (let i = 0; i < total; i += CHUNK) {
+    const chunk = rows.slice(i, i + CHUNK);
+    const pct = Math.round((i / total) * 100);
+    document.getElementById('prog-bar').style.width = pct + '%';
+    document.getElementById('prog-pct').textContent = pct + '%';
+    document.getElementById('prog-label').textContent = `Subiendo lote ${Math.floor(i/CHUNK)+1} de ${Math.ceil(total/CHUNK)}…`;
+    document.getElementById('prog-detail').textContent = `${i} de ${total} productos procesados`;
+
+    const { error } = await sb.from('Productos').upsert(chunk, { onConflict: 'codigo' });
+    if (error) { errorMsg = error.message; break; }
+    ok += chunk.length;
+    // Pequeña pausa para no saturar
+    await new Promise(r => setTimeout(r, 80));
+  }
+
+  document.getElementById('prog-bar').style.width = '100%';
+  document.getElementById('prog-pct').textContent = '100%';
+
+  const resultEl = document.getElementById('result');
+  resultEl.style.display = 'block';
+  if (errorMsg) {
+    resultEl.className = 'result err';
+    resultEl.textContent = '✗ Error: ' + errorMsg;
+  } else {
+    resultEl.className = 'result ok';
+    resultEl.textContent = `✓ ${ok} productos guardados en Supabase${skipped ? ` · ${skipped} filas omitidas` : ''}`;
+  }
+  document.getElementById('prog-label').textContent = 'Completado';
+  document.getElementById('prog-detail').textContent = `${ok} de ${total} productos subidos correctamente`;
+  document.getElementById('btn-reload').style.display = 'block';
+}
+</script>
+</body>
+</html>
