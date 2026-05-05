@@ -423,7 +423,7 @@ main { flex: 1; padding: 14px 16px 80px; display: flex; flex-direction: column; 
       </div>
       <div class="online-badge">
         <div class="online-dot"></div>
-        <span class="online-text">En línea</span>
+        <span class="online-text" id="online-text">Conectando…</span>
       </div>
     </div>
 
@@ -469,7 +469,6 @@ main { flex: 1; padding: 14px 16px 80px; display: flex; flex-direction: column; 
           Escanear código de barras
         </button>
 
-        <!-- Ayuda permisos cámara -->
         <div id="cam-help" style="display:none;margin-top:12px;background:var(--amber-soft);border-radius:var(--radius-sm);padding:14px 16px;">
           <div style="font-size:13px;font-weight:700;color:#92400e;margin-bottom:8px;">📷 Cómo activar la cámara</div>
           <div style="font-size:12px;color:#78350f;line-height:1.8;">
@@ -601,32 +600,39 @@ ALF001, Alfajor Clásico, Con dulce de leche,
 
 <!-- ZXing como fallback para navegadores sin BarcodeDetector nativo -->
 <script>
-  // Intentar cargar ZXing solo si BarcodeDetector no está disponible
   if (!('BarcodeDetector' in window)) {
     const s = document.createElement('script');
     s.src = 'https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js';
     document.head.appendChild(s);
   }
 </script>
-<script>
-// ─── CONFIG ──────────────────────────────────────────────────────────────────
-// Cuando tengas el backend, cambiá null por tu URL:
-// const API = 'https://tu-backend.railway.app/api';
-const API = 'https://precioscan-production.up.railway.app/';
 
-// ─── DATOS DE EJEMPLO ─────────────────────────────────────────────────────────
-let DB = [
-  { id:1, codigo:'ALF001', nombre:'Alfajor Clásico', descripcion:'De maicena con dulce de leche repostero', precio:850, categoria:'Alfajores', stock:200, unidad:'unidad', iva:21 },
-  { id:2, codigo:'ALF002', nombre:'Alfajor Chocolate Amargo', descripcion:'Cubierto de chocolate 70% cacao', precio:980, categoria:'Alfajores', stock:150, unidad:'unidad', iva:21 },
-  { id:3, codigo:'ALF003', nombre:'Alfajor Triple', descripcion:'Tres capas con dulce de leche repostero', precio:1100, categoria:'Alfajores', stock:120, unidad:'unidad', iva:21 },
-  { id:4, codigo:'ALF004', nombre:'Alfajor Blanco Maracuyá', descripcion:'Chocolate blanco con crema de maracuyá', precio:950, categoria:'Alfajores', stock:80, unidad:'unidad', iva:21 },
-  { id:5, codigo:'CAJ001', nombre:'Caja x12 Clásicos', descripcion:'Caja de 12 alfajores clásicos', precio:9600, categoria:'Cajas', stock:40, unidad:'caja', iva:21 },
-  { id:6, codigo:'CAJ002', nombre:'Caja x24 Surtidos', descripcion:'Caja surtida 24 unidades variadas', precio:19200, categoria:'Cajas', stock:25, unidad:'caja', iva:21 },
-  { id:7, codigo:'REG001', nombre:'Estuche Regalo Chico', descripcion:'3 alfajores seleccionados con lazo', precio:3200, categoria:'Regalos', stock:50, unidad:'estuche', iva:21 },
-  { id:8, codigo:'REG002', nombre:'Estuche Regalo Grande', descripcion:'6 alfajores premium con caja decorada', precio:6800, categoria:'Regalos', stock:20, unidad:'estuche', iva:21 },
-  { id:9, codigo:'MAY001', nombre:'Mayorista x60 Clásicos', descripcion:'Bolsa mayorista 60 unidades', precio:45000, categoria:'Mayorista', stock:15, unidad:'bolsa', iva:21 },
-  { id:10, codigo:'MAY002', nombre:'Mayorista x60 Surtidos', descripcion:'Bolsa mayorista surtida 60 unidades', precio:46000, categoria:'Mayorista', stock:10, unidad:'bolsa', iva:21 },
-];
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+<script>
+// ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://xaktfuibvjunytnddxcb.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_7LY9aXtW6MZO_aoX9VO73w_y5jfZ_pd';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Cache local para la tab Productos (se carga al entrar)
+let DB_CACHE = [];
+let catsCache = [];
+
+// ─── CONEXIÓN ────────────────────────────────────────────────────────────────
+async function checkConnection() {
+  const { error } = await supabase.from('Productos').select('codigo', { count: 'exact', head: true });
+  const dot = document.querySelector('.online-dot');
+  const txt = document.getElementById('online-text');
+  if (error) {
+    dot.style.background = '#f87171';
+    txt.textContent = 'Sin conexión';
+  } else {
+    dot.style.background = '#4ade80';
+    txt.textContent = 'En línea';
+  }
+}
 
 // ─── EMOJIS POR CATEGORÍA ────────────────────────────────────────────────────
 const catEmoji = { 'Alfajores':'🍬', 'Cajas':'📦', 'Regalos':'🎁', 'Mayorista':'🏭', 'General':'🏷️', 'Importado':'📋' };
@@ -641,10 +647,10 @@ function switchTab(id, btn) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-'+id).classList.add('active');
   btn.classList.add('active');
-  if (id === 'productos') renderProducts();
+  if (id === 'productos') loadAndRenderProducts();
 }
 
-// ─── BÚSQUEDA ────────────────────────────────────────────────────────────────
+// ─── BÚSQUEDA (Supabase) ─────────────────────────────────────────────────────
 const searchInput = document.getElementById('search-input');
 const dropdown = document.getElementById('dropdown');
 const searchClearBtn = document.getElementById('search-clear');
@@ -655,36 +661,34 @@ searchInput.addEventListener('input', () => {
   const q = searchInput.value.trim();
   searchClearBtn.classList.toggle('show', q.length > 0);
   if (!q) { hideDropdown(); return; }
-  searchTimeout = setTimeout(() => doSearch(q), 160);
+  searchTimeout = setTimeout(() => doSearch(q), 200);
 });
 
 async function doSearch(q) {
-  let res = API ? await safeFetch(`${API}/products?q=${encodeURIComponent(q)}`) || localSearch(q) : localSearch(q);
-  if (!res.length) {
-    dropdown.innerHTML = `<div class="drop-empty">Sin resultados para "${q}" 😕</div>`;
-  } else {
-    dropdown.innerHTML = res.slice(0,7).map(p => `
-      <button class="drop-item" onclick='selectProduct(${JSON.stringify(p)})'>
-        <div class="drop-thumb">${getEmoji(p.categoria)}</div>
-        <div class="drop-info">
-          <div class="drop-name">${p.nombre}</div>
-          <div class="drop-meta">${p.codigo} · ${p.categoria}</div>
-        </div>
-        <span class="drop-price">$${fmt(p.precio)}</span>
-      </button>
-    `).join('');
-  }
+  dropdown.innerHTML = `<div class="drop-empty">Buscando…</div>`;
   dropdown.classList.add('show');
-}
 
-function localSearch(q) {
-  const lq = q.toLowerCase();
-  return DB.filter(p =>
-    p.nombre.toLowerCase().includes(lq) ||
-    p.codigo.toLowerCase().includes(lq) ||
-    (p.descripcion||'').toLowerCase().includes(lq) ||
-    (p.categoria||'').toLowerCase().includes(lq)
-  );
+  const { data, error } = await supabase
+    .from('Productos')
+    .select('*')
+    .or(`nombre.ilike.%${q}%,codigo.ilike.%${q}%,descripcion.ilike.%${q}%,categoria.ilike.%${q}%`)
+    .limit(7);
+
+  if (error || !data || !data.length) {
+    dropdown.innerHTML = `<div class="drop-empty">Sin resultados para "${q}" 😕</div>`;
+    return;
+  }
+
+  dropdown.innerHTML = data.map(p => `
+    <button class="drop-item" onclick='selectProduct(${JSON.stringify(p)})'>
+      <div class="drop-thumb">${getEmoji(p.categoria)}</div>
+      <div class="drop-info">
+        <div class="drop-name">${p.nombre}</div>
+        <div class="drop-meta">${p.codigo} · ${p.categoria}</div>
+      </div>
+      <span class="drop-price">$${fmt(p.precio)}</span>
+    </button>
+  `).join('');
 }
 
 function hideDropdown() { dropdown.classList.remove('show'); dropdown.innerHTML = ''; }
@@ -695,11 +699,6 @@ function clearSearch() {
   hideDropdown();
   document.getElementById('result-card').classList.remove('show');
   document.getElementById('empty-state').style.display = '';
-}
-
-async function safeFetch(url, opts) {
-  try { const r = await fetch(url, opts); if (r.ok) return await r.json(); } catch(e) {}
-  return null;
 }
 
 // ─── SELECCIONAR PRODUCTO ────────────────────────────────────────────────────
@@ -723,7 +722,7 @@ function selectProduct(p) {
   stockEl.textContent = p.stock + ' u.';
   stockEl.className = 'meta-chip-value ' + (p.stock > 20 ? 'green' : p.stock > 5 ? 'amber' : 'red');
 
-  document.getElementById('r-coniva').textContent = '$' + fmt(p.precio * (1 + p.iva/100));
+  document.getElementById('r-coniva').textContent = '$' + fmt(p.precio * (1 + p.iva / 100));
 
   const card = document.getElementById('result-card');
   card.classList.add('show');
@@ -748,13 +747,8 @@ async function toggleScanner() {
   scanActive = true;
 
   try {
-    // Pedir acceso a la cámara trasera
     videoStream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { ideal: 'environment' }, // cámara trasera
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-      },
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: false,
     });
 
@@ -763,7 +757,6 @@ async function toggleScanner() {
     container.classList.add('active');
     btn.innerHTML = `${SCAN_ICON} Detener escáner`;
 
-    // Intentar con BarcodeDetector nativo (Chrome Android, Safari 17+)
     if ('BarcodeDetector' in window) {
       const detector = new BarcodeDetector({
         formats: ['ean_13','ean_8','code_128','code_39','qr_code','upc_a','upc_e','itf','codabar'],
@@ -772,50 +765,28 @@ async function toggleScanner() {
         if (!scanActive) return;
         try {
           const codes = await detector.detect(video);
-          if (codes.length > 0) {
-            const code = codes[0].rawValue;
-            stopScanner();
-            handleBarcode(code);
-          }
+          if (codes.length > 0) { stopScanner(); handleBarcode(codes[0].rawValue); }
         } catch(e) {}
       }, 300);
-
+    } else if (typeof ZXing !== 'undefined') {
+      const codeReader = new ZXing.BrowserMultiFormatReader();
+      codeReader.decodeFromStream(videoStream, video, (result) => {
+        if (result && scanActive) { stopScanner(); handleBarcode(result.getText()); }
+      });
     } else {
-      // Fallback: canvas + ZXing si está disponible
-      if (typeof ZXing !== 'undefined') {
-        const hints = new Map();
-        const codeReader = new ZXing.BrowserMultiFormatReader(hints);
-        codeReader.decodeFromStream(videoStream, video, (result) => {
-          if (result && scanActive) {
-            stopScanner();
-            handleBarcode(result.getText());
-          }
-        });
-      } else {
-        // Último recurso: canvas manual con detección básica
-        showToast('Escáner listo — apuntá al código', 'success');
-        const canvas = document.createElement('canvas');
-        scanInterval = setInterval(async () => {
-          if (!scanActive || video.readyState < 2) return;
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          canvas.getContext('2d').drawImage(video, 0, 0);
-        }, 500);
-      }
+      showToast('Escáner listo — apuntá al código', 'success');
     }
 
   } catch(err) {
     stopScanner();
     if (err.name === 'NotAllowedError') {
       showToast('Permiso de cámara denegado — activalo en Configuración', 'error');
-      // Mostrar instrucciones
       document.getElementById('cam-help').style.display = 'block';
     } else if (err.name === 'NotFoundError') {
       showToast('No se encontró cámara en este dispositivo', 'error');
     } else {
       showToast('Error al abrir la cámara: ' + err.message, 'error');
     }
-    console.error('Scanner error:', err);
   }
 }
 
@@ -823,19 +794,11 @@ function stopScanner() {
   scanActive = false;
   clearInterval(scanInterval);
   scanInterval = null;
-
-  // Detener stream de video
-  if (videoStream) {
-    videoStream.getTracks().forEach(t => t.stop());
-    videoStream = null;
-  }
-
+  if (videoStream) { videoStream.getTracks().forEach(t => t.stop()); videoStream = null; }
   const video = document.getElementById('scanner-video');
   video.srcObject = null;
-
   document.getElementById('scanner-container').classList.remove('active');
   document.getElementById('cam-help').style.display = 'none';
-
   const btn = document.getElementById('scan-btn');
   btn.classList.remove('scanning');
   btn.innerHTML = `${SCAN_ICON} Escanear código de barras`;
@@ -846,48 +809,76 @@ async function handleBarcode(code) {
   searchInput.value = code;
   searchClearBtn.classList.add('show');
 
-  let product = DB.find(p => p.codigo === code);
-  if (!product && API) product = await safeFetch(`${API}/products/barcode/${encodeURIComponent(code)}`);
-  if (!product) {
-    const hits = localSearch(code);
-    if (hits.length === 1) product = hits[0];
-    else if (hits.length > 1) { doSearch(code); return; }
+  // Buscar primero por código exacto, luego búsqueda general
+  let { data } = await supabase.from('Productos').select('*').eq('codigo', code).maybeSingle();
+  if (!data) {
+    const res = await supabase.from('Productos').select('*')
+      .or(`nombre.ilike.%${code}%,codigo.ilike.%${code}%`).limit(5);
+    if (res.data && res.data.length === 1) data = res.data[0];
+    else if (res.data && res.data.length > 1) { doSearch(code); return; }
   }
 
-  if (product) selectProduct(product);
+  if (data) selectProduct(data);
   else {
     document.getElementById('empty-state').style.display = '';
     showToast('Código no encontrado en la base', 'error');
   }
 }
 
-// ─── PRODUCTOS TAB ────────────────────────────────────────────────────────────
+// ─── PRODUCTOS TAB (con paginación Supabase) ──────────────────────────────────
 let currentCat = 'Todos';
+let prodPage = 0;
+const PAGE_SIZE = 50;
 
-function renderProducts() {
-  const cats = ['Todos', ...new Set(DB.map(p => p.categoria))];
+async function loadAndRenderProducts() {
+  // Cargar categorías únicas si no las tenemos
+  if (!catsCache.length) {
+    const { data } = await supabase.from('Productos').select('categoria');
+    if (data) {
+      catsCache = [...new Set(data.map(r => r.categoria).filter(Boolean))].sort();
+    }
+  }
+  await renderProducts();
+}
+
+async function renderProducts() {
+  const cats = ['Todos', ...catsCache];
   const filtersEl = document.getElementById('cat-filters');
   filtersEl.innerHTML = cats.map(c =>
     `<button class="cat-chip ${c===currentCat?'active':''}" onclick="filterCat('${c}',this)">${c}</button>`
   ).join('');
 
-  const q = (document.getElementById('prod-search')?.value || '').toLowerCase();
-  let filtered = currentCat === 'Todos' ? DB : DB.filter(p => p.categoria === currentCat);
-  if (q) filtered = filtered.filter(p => p.nombre.toLowerCase().includes(q) || p.codigo.toLowerCase().includes(q));
+  const q = (document.getElementById('prod-search')?.value || '').trim();
 
-  document.getElementById('prod-count').textContent = `${filtered.length} producto${filtered.length!==1?'s':''} encontrado${filtered.length!==1?'s':''}`;
+  document.getElementById('prod-list').innerHTML = `
+    <div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">Cargando…</div></div>`;
 
-  if (!filtered.length) {
+  let query = supabase.from('Productos').select('*', { count: 'exact' });
+  if (currentCat !== 'Todos') query = query.eq('categoria', currentCat);
+  if (q) query = query.or(`nombre.ilike.%${q}%,codigo.ilike.%${q}%`);
+  query = query.order('nombre').range(0, PAGE_SIZE - 1);
+
+  const { data, count, error } = await query;
+
+  if (error) {
+    document.getElementById('prod-list').innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Error al cargar</div></div>`;
+    return;
+  }
+
+  document.getElementById('prod-count').textContent =
+    `${count} producto${count !== 1 ? 's' : ''} encontrado${count !== 1 ? 's' : ''}`;
+
+  if (!data || !data.length) {
     document.getElementById('prod-list').innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">Sin resultados</div></div>`;
     return;
   }
 
-  document.getElementById('prod-list').innerHTML = filtered.map(p => `
+  document.getElementById('prod-list').innerHTML = data.map(p => `
     <div class="prod-row" onclick='goToProduct(${JSON.stringify(p)})'>
       <div class="prod-row-icon">${getEmoji(p.categoria)}</div>
       <div class="prod-row-info">
         <div class="prod-row-name">${p.nombre}</div>
-        <div class="prod-row-sub">${p.codigo} · ${p.unidad} · Stock: ${p.stock}</div>
+        <div class="prod-row-sub">${p.codigo} · ${p.unidad || ''} · Stock: ${p.stock ?? '—'}</div>
       </div>
       <span class="prod-row-price">$${fmt(p.precio)}</span>
       <span class="prod-row-arrow">›</span>
@@ -907,59 +898,83 @@ function goToProduct(p) {
   setTimeout(() => selectProduct(p), 60);
 }
 
-// ─── CSV ──────────────────────────────────────────────────────────────────────
+// ─── CSV → SUPABASE (upsert) ──────────────────────────────────────────────────
 const zone = document.getElementById('upload-zone');
 zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
 zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
 zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('drag'); const f=e.dataTransfer.files[0]; if(f) processCSV(f); });
 
 async function handleCSV(evt) {
-  const f = evt.target.files[0]; if(f) processCSV(f); evt.target.value='';
+  const f = evt.target.files[0]; if (f) processCSV(f); evt.target.value = '';
 }
 
 async function processCSV(file) {
   const text = await file.text();
   const lines = text.trim().split('\n');
-  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z]/g,''));
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z]/g, ''));
   const log = document.getElementById('import-log');
   log.innerHTML = '';
-  let ok=0, err=0;
+  let ok = 0, err = 0;
 
   const find = (keys) => headers.find(h => keys.some(k => h.includes(k)));
-  const nk = find(['nombre','name','descripcion']); const pk = find(['precio','price','pvp','venta']);
+  const nk = find(['nombre','name']); const pk = find(['precio','price','pvp','venta']);
   const ck = find(['codigo','cod','ref','barcode']); const catk = find(['categoria','cat','familia','grupo']);
+  const dk = find(['descripcion','desc']);
 
-  const added = [];
-  for (let i=1; i<lines.length; i++) {
+  const batch = [];
+  for (let i = 1; i < lines.length; i++) {
     const v = lines[i].split(',');
-    const r = {}; headers.forEach((h,j) => r[h]=(v[j]||'').trim());
-    const nombre = r[nk]||r.nombre||'';
-    const precio = parseFloat(r[pk]||r.precio||'0');
-    const codigo = r[ck]||r.codigo||`CSV${i}`;
-    if (!nombre||isNaN(precio)||precio<=0) { err++; log.innerHTML+=`<div class="log-row err"><span class="log-icon">✗</span><span class="log-text">Fila ${i}: datos inválidos</span></div>`; continue; }
-    const prod = { id:Date.now()+i, codigo, nombre, precio, descripcion:r.descripcion||r.desc||'', categoria:r[catk]||r.categoria||'Importado', stock:parseInt(r.stock||'0')||0, unidad:r.unidad||r.um||'unidad', iva:parseFloat(r.iva||'21')||21 };
-    const ex = DB.findIndex(p=>p.codigo===codigo);
-    if (ex>=0) DB[ex]={...DB[ex],...prod}; else added.push(prod);
+    const r = {}; headers.forEach((h, j) => r[h] = (v[j] || '').trim());
+    const nombre = r[nk] || r.nombre || '';
+    const precio = parseFloat(r[pk] || r.precio || '0');
+    const codigo = r[ck] || r.codigo || '';
+    if (!nombre || !codigo || isNaN(precio) || precio <= 0) {
+      err++;
+      log.innerHTML += `<div class="log-row err"><span class="log-icon">✗</span><span class="log-text">Fila ${i}: datos inválidos</span></div>`;
+      continue;
+    }
+    batch.push({
+      codigo,
+      nombre,
+      precio,
+      descripcion: r[dk] || r.descripcion || '',
+      categoria: r[catk] || r.categoria || 'Importado',
+      stock: parseInt(r.stock || '0') || 0,
+      unidad: r.unidad || r.um || 'unidad',
+      iva: parseInt(r.iva || '21') || 21,
+    });
     ok++;
-    log.innerHTML+=`<div class="log-row ok"><span class="log-icon">✓</span><span class="log-text">${codigo} — ${nombre} — $${fmt(precio)}</span></div>`;
+    log.innerHTML += `<div class="log-row ok"><span class="log-icon">✓</span><span class="log-text">${codigo} — ${nombre} — $${fmt(precio)}</span></div>`;
   }
-  DB=[...DB,...added];
-  if (API) { safeFetch(`${API}/products/import`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(DB)}); }
-  showToast(`${ok} productos importados${err?' · '+err+' errores':''}`, ok>0?'success':'error');
+
+  if (batch.length) {
+    // Upsert en Supabase usando codigo como clave
+    const { error } = await supabase.from('Productos').upsert(batch, { onConflict: 'codigo' });
+    if (error) {
+      showToast('Error al guardar en Supabase: ' + error.message, 'error');
+      return;
+    }
+    // Limpiar cache para refrescar productos
+    DB_CACHE = []; catsCache = [];
+  }
+
+  showToast(`${ok} productos guardados en Supabase${err ? ' · ' + err + ' errores' : ''}`, ok > 0 ? 'success' : 'error');
 }
 
 // ─── TOAST ────────────────────────────────────────────────────────────────────
-function showToast(msg, type='') {
+function showToast(msg, type = '') {
   const t = document.getElementById('toast');
   t.textContent = msg; t.className = type;
   t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'), 2800);
+  setTimeout(() => t.classList.remove('show'), 2800);
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 document.addEventListener('click', e => {
   if (!e.target.closest('#dropdown') && !e.target.closest('.header-search')) hideDropdown();
 });
+
+checkConnection();
 </script>
 </body>
 </html>
